@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 )
+
 //To add the data of user into database "users"
 func Add(db *sql.DB , entry SignupJSON ){
 
@@ -44,6 +45,7 @@ func Find(db *sql.DB , rollno int64  , name string ) int{
 	return 0
 }
 
+//Verify if rollno and password match in the database 
 func Verify( db *sql.DB , user LoginJSON) bool {
 	
     getDataSQL :="SELECT * FROM users"

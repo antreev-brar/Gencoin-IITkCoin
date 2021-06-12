@@ -6,7 +6,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-
 func CheckError(err error) {
 	// catch to error.
 	if err != nil {
@@ -26,8 +25,6 @@ func HashAndSalt(pwd string ) string {
 	// convert the bytes to a string and return it
 	return string(hash)
 }
-
-
 
 func ComparePasswords(hashedPwd string, plainPwd string) bool {
 	// Since we'll be Getting the hashed password from the DB it
