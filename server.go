@@ -12,19 +12,21 @@ import (
 
 // Create the JWT key used to create the signature
 var jwtKey = []byte("THE_man_has_no_face")
+var maxcoins int64 = 100000
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 func main() {
 	database, _ := sql.Open("sqlite3", "./database.db")
 	defer database.Close()
 	CreateTable(database)
+	CreateTableTransactions(database)
 	Get(database)
 
 	http.HandleFunc("/", Servepage)
 	http.HandleFunc("/signup", Signup)
 	http.HandleFunc("/login", Login)
 	http.HandleFunc("/getbalance", Getbalance)
-	http.HandleFunc("/addcoins", Addcoins)
+	http.Handle("/addcoins", IsAuthorized(Addcoins))
 	http.HandleFunc("/transaction", Transaction)
 	http.Handle("/refresh", IsAuthorized(Refresh))
 	http.Handle("/secretpage", IsAuthorized(Secretpage))

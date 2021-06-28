@@ -8,6 +8,7 @@ type SignupJSON struct {
 	Name     string `json:"name"`
 	Rollno   int64  `json:"rollno"`
 	Password string `json:"password"`
+	Admin    bool   `json:"admin"`
 }
 type LoginJSON struct {
 	Rollno   int64  `json:"rollno"`

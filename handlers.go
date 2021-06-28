@@ -98,7 +98,7 @@ func Login(w http.ResponseWriter, req *http.Request) {
 		if Verify(db, newUser) {
 
 			// Declare the expiration time of the token
-			expirationTime := time.Now().Add(5 * time.Minute)
+			expirationTime := time.Now().Add(50 * time.Minute)
 			// Create the JWT claims, which includes the username and expiry time
 			claims := &CustomClaims{
 				Rollno: newUser.Rollno,
@@ -288,6 +288,27 @@ func Addcoins(w http.ResponseWriter, r *http.Request) {
 	db, _ := sql.Open("sqlite3", "./database.db")
 	defer db.Close()
 
+	/////////////////////////////////////////////////////////
+	//Check if user is Admin
+	cookie, _ := r.Cookie("token")
+	// Get the JWT string from the cookie
+	tknStr := cookie.Value
+	// Initialize a new instance of `Claims`
+	claims := &CustomClaims{}
+	// Parse the JWT string and store the result in `claims`.
+	tkn, _ := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	log.Println(claims.Rollno)
+	log.Println(tkn)
+
+	if !IsAdmin(db, claims.Rollno) {
+		w.WriteHeader(404)
+		w.Write([]byte("U aint the admin bitch, BOunce now"))
+		return
+	}
+	//////////////////////////////////////////////////////////
+
 	if r.Method == "POST" {
 		var newUser BalanceJSON
 		decoder := json.NewDecoder(r.Body)
@@ -313,7 +334,7 @@ func Addcoins(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("Coins added"))
 			} else {
 				w.WriteHeader(404)
-				w.Write([]byte("Awards can't be awareded"))
+				w.Write([]byte("coins can't be awarded"))
 			}
 
 		} else {
@@ -344,15 +365,33 @@ func Transaction(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	if r.Method == "POST" {
-		var newReq TransactionJSON
+		var newReq BalanceJSON
 		decoder := json.NewDecoder(r.Body)
 		err := decoder.Decode(&newReq)
 		CheckError(err)
 		log.Println(newReq)
 
+		/////////////////////////////////////////////////////////
+		//Fetch Rollno from JWT key
+		//Check if user is Admin
+		cookie, _ := r.Cookie("token")
+		// Get the JWT string from the cookie
+		tknStr := cookie.Value
+		// Initialize a new instance of `Claims`
+		claims := &CustomClaims{}
+		// Parse the JWT string and store the result in `claims`.
+		tkn, _ := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
+			return jwtKey, nil
+		})
+		log.Println(claims.Rollno)
+		log.Println(tkn)
+		//////////////////////////////////////////////////////////
+
 		coins := newReq.Coins
-		torollno := newReq.ToRollno
-		fromrollno := newReq.FromRollno
+		torollno := newReq.Rollno
+		fromrollno := claims.Rollno
+
+		newTransReq := TransactionJSON{FromRollno: fromrollno, ToRollno: torollno, Coins: coins}
 
 		//make sure we are awarding non negative coins
 		if (coins < 0) || (torollno == fromrollno) {
@@ -363,7 +402,7 @@ func Transaction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if (Find(db, torollno) == 1) && (Find(db, fromrollno) == 1) {
-			res := MakeTransaction(db, newReq)
+			res := MakeTransaction(db, newTransReq)
 
 			if res {
 				w.Write([]byte("Transfer Done"))
