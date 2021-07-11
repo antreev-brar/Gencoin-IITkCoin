@@ -1,7 +1,7 @@
-# iitk-coin
+# Gencoin/IITkCoin
 
 ## Introduction
-IITk-coin is a vision of a pseudo-currency for use in the IITK Campus. 
+Gencoin (IITk-coin) is a vision of a pseudo-currency for use in the IITK Campus. 
 
 ---
 ## Endpoints
@@ -19,7 +19,7 @@ These are the following functional endpoints in the current status of project
 ---
 ## Usage
 
-To use iitcoin , first clone the repo-
+To use Gencoin/IITkCoin, first clone the repo-
 ```
 git clone <repo name>
 ```
