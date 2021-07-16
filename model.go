@@ -39,3 +39,17 @@ type TransactionJSON struct {
 	ToRollno   int64 `json:"torollno"`
 	Coins      int64 `json:"coins"`
 }
+
+type RedeemJSON struct {
+	Rollno int64  `json:"rollno"`
+	Item   string `json:"item"`
+	Coins  int64  `json:"coins"`
+}
+type RedeemInputJSON struct {
+	Item  string `json:"item"`
+	Coins int64  `json:"coins"`
+}
+type RedeemAdminJSON struct {
+	Index  int64 `json:"index"`
+	Status bool  `json:"status"`
+}

@@ -20,6 +20,7 @@ func main() {
 	defer database.Close()
 	CreateTable(database)
 	CreateTableTransactions(database)
+	CreateTableRedeem(database)
 	Get(database)
 
 	http.HandleFunc("/", Servepage)
@@ -27,7 +28,9 @@ func main() {
 	http.HandleFunc("/login", Login)
 	http.HandleFunc("/getbalance", Getbalance)
 	http.Handle("/addcoins", IsAuthorized(Addcoins))
-	http.HandleFunc("/transaction", Transaction)
+	http.Handle("/redeem", IsAuthorized(Redeem))
+	http.Handle("/redeemadmin", IsAuthorized(RedeemAdmin))
+	http.Handle("/transaction", IsAuthorized(Transaction))
 	http.Handle("/refresh", IsAuthorized(Refresh))
 	http.Handle("/secretpage", IsAuthorized(Secretpage))
 	log.Println("Server up at port 3000")

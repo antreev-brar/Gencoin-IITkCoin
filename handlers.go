@@ -373,7 +373,6 @@ func Transaction(w http.ResponseWriter, r *http.Request) {
 
 		/////////////////////////////////////////////////////////
 		//Fetch Rollno from JWT key
-		//Check if user is Admin
 		cookie, _ := r.Cookie("token")
 		// Get the JWT string from the cookie
 		tknStr := cookie.Value
@@ -423,3 +422,136 @@ func Transaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//TO make a redeem request
+func Redeem(w http.ResponseWriter, r *http.Request) {
+	//check if path is indeed correct
+	if r.URL.Path != "/redeem" {
+		http.NotFound(w, r)
+		return
+	}
+
+	//Open database
+	db, _ := sql.Open("sqlite3", "./database.db")
+	defer db.Close()
+
+	if r.Method == "POST" {
+		var newReq RedeemInputJSON
+		decoder := json.NewDecoder(r.Body)
+		err := decoder.Decode(&newReq)
+		CheckError(err)
+		log.Println(newReq)
+
+		/////////////////////////////////////////////////////////
+		//Fetch Rollno from JWT key
+		cookie, _ := r.Cookie("token")
+		// Get the JWT string from the cookie
+		tknStr := cookie.Value
+		// Initialize a new instance of `Claims`
+		claims := &CustomClaims{}
+		// Parse the JWT string and store the result in `claims`.
+		tkn, _ := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
+			return jwtKey, nil
+		})
+		log.Println(claims.Rollno)
+		log.Println(tkn)
+		//////////////////////////////////////////////////////////
+
+		coins := newReq.Coins
+		item := newReq.Item
+		rollno := claims.Rollno
+
+		if coins < 0 {
+			w.WriteHeader(400)
+			w.Write([]byte("Redeem Request Failed , cant redeem negative coins"))
+			return
+		}
+
+		newRedeemReq := RedeemJSON{Rollno: rollno, Item: item, Coins: coins}
+
+		res := AddRedeem(db, newRedeemReq)
+		if res {
+			w.Write([]byte("Redeem Requested"))
+		} else {
+			w.WriteHeader(400)
+			w.Write([]byte("Redeem Request Failed"))
+		}
+
+	} else {
+		//endpoint can't be accessed via other Request methods
+		w.WriteHeader(http.StatusNotImplemented)
+		w.Write([]byte(http.StatusText(http.StatusNotImplemented)))
+	}
+
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Perform action on redeem request
+
+func RedeemAdmin(w http.ResponseWriter, r *http.Request) {
+	//check if path is indeed correct
+	if r.URL.Path != "/redeemadmin" {
+		http.NotFound(w, r)
+		return
+	}
+
+	//Open database
+	db, _ := sql.Open("sqlite3", "./database.db")
+	defer db.Close()
+
+	/////////////////////////////////////////////////////////
+	//Check if user is Admin
+	cookie, _ := r.Cookie("token")
+	// Get the JWT string from the cookie
+	tknStr := cookie.Value
+	// Initialize a new instance of `Claims`
+	claims := &CustomClaims{}
+	// Parse the JWT string and store the result in `claims`.
+	tkn, _ := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	log.Println(claims.Rollno)
+	log.Println(tkn)
+
+	if !IsAdmin(db, claims.Rollno) {
+		w.WriteHeader(404)
+		w.Write([]byte("U aint the admin bitch, BOunce now"))
+		return
+	}
+	//////////////////////////////////////////////////////////
+
+	if r.Method == "POST" {
+		var newReq RedeemAdminJSON
+		decoder := json.NewDecoder(r.Body)
+		err := decoder.Decode(&newReq)
+		CheckError(err)
+		log.Println(newReq)
+
+		JSONRedeem := ValidRedeem(db, newReq.Index)
+
+		if JSONRedeem.Coins != -1 {
+			res := UpdateRedeem(db, newReq, JSONRedeem)
+
+			if res {
+				w.Write([]byte("Redeem Approved"))
+			} else {
+				w.WriteHeader(404)
+				w.Write([]byte("Redeem Rejected"))
+			}
+
+		} else {
+			w.WriteHeader(400)
+			w.Write([]byte("Admin process failed , Invalid Redeem"))
+			log.Println(" Admin process failed, Invalid Redeem")
+		}
+	} else {
+		//endpoint can't be accessed via other Request methods
+		w.WriteHeader(http.StatusNotImplemented)
+		w.Write([]byte(http.StatusText(http.StatusNotImplemented)))
+	}
+
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////

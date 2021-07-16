@@ -40,8 +40,14 @@ func AddTransaction(db *sql.DB, transactiontype string, entry TransactionJSON) b
 	addDataSQL := `INSERT INTO transactions (transactiontype , fromrollno ,  torollno , coins, timestamp) VALUES (?,?,?,?,CURRENT_TIMESTAMP)`
 	statement, err := db.Prepare(addDataSQL)
 	CheckError(err)
+	if err != nil {
+		return false
+	}
 	statement.Exec(transactiontype, fromrollno, torollno, coins)
 	CheckError(err)
+	if err != nil {
+		return false
+	}
 	log.Println("Inserting  transaction data completed")
 	return true
 
@@ -268,4 +274,137 @@ func CreateTableTransactions(db *sql.DB) {
 	log.Println("Creating Table")
 	stmt.Exec()
 	log.Println("Table Created")
+}
+
+//create a table for redeem transactions in the sqlite database
+func CreateTableRedeem(db *sql.DB) {
+	createTableSQL := `CREATE TABLE IF NOT EXISTS redeem (
+		"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+		"status" TEXT,
+		"rollno" integer,
+		"coins" integer,
+		"item" TEXT,
+		"timestamp" TIMESTAMP
+	);`
+	stmt, err := db.Prepare(createTableSQL)
+	CheckError(err)
+	log.Println("Creating Table")
+	stmt.Exec()
+	log.Println("Table Created")
+}
+
+//Function to add a redeem request to the redeem table
+func AddRedeem(db *sql.DB, entry RedeemJSON) bool {
+	status := "Pending"
+	rollno := entry.Rollno
+	item := entry.Item
+	coins := entry.Coins
+
+	log.Println("Inserting redeem data")
+
+	addDataSQL := `INSERT INTO redeem (status , rollno ,coins , item , timestamp) VALUES (?,?,?,?,CURRENT_TIMESTAMP)`
+	statement, err := db.Prepare(addDataSQL)
+	CheckError(err)
+	if err != nil {
+		return false
+	}
+
+	statement.Exec(status, rollno, coins, item)
+	CheckError(err)
+	if err != nil {
+		return false
+	}
+
+	log.Println("Inserting redeem data completed")
+	return true
+}
+
+//Function to check if the index is valid and the row on which operation is performed is Pending
+//if valid return number of coins
+
+func ValidRedeem(db *sql.DB, ind int64) RedeemJSON {
+	getDataSQL := "SELECT * FROM redeem"
+	rows, err := db.Query(getDataSQL)
+	CheckError(err)
+	defer rows.Close()
+	redeem := RedeemJSON{Coins: -1, Item: "N/A", Rollno: -1}
+
+	for rows.Next() {
+		var id int64
+		var status string
+		var rollno int64
+		var coins int64
+		var item string
+		var date string
+		rows.Scan(&id, &status, &rollno, &coins, &item, &date)
+		log.Println("Id = ", id, "Status", status, "Rollno", rollno, "coins", coins, "item", item)
+		if id == ind && status == "Pending" {
+			redeem.Coins = coins
+			redeem.Item = item
+			redeem.Rollno = rollno
+			return redeem
+		}
+	}
+	return redeem
+}
+
+//Function to update the entry in the redeem table
+func UpdateRedeem(db *sql.DB, adminentry RedeemAdminJSON, entry RedeemJSON) bool {
+
+	id := adminentry.Index
+	status := adminentry.Status
+	coinsToRedeem := entry.Coins
+	rollno := entry.Rollno
+
+	// Create a new context, and begin a transaction
+	ctx := context.Background()
+	tx, err := db.BeginTx(ctx, nil)
+	CheckError(err)
+
+	log.Println("Processing a Redeem Request")
+
+	////////////////////////////////////////////////////
+	//Update the account from which coins are being transferred
+	if status {
+		res, err := tx.ExecContext(ctx, "UPDATE users SET coins = coins - ? WHERE rollno=?  AND coins - ? >=0 ", coinsToRedeem, rollno, coinsToRedeem)
+		CheckError(err)
+		rows_affected, err := res.RowsAffected()
+
+		if err != nil || rows_affected != 1 {
+			// Incase we find any error in the query execution, rollback the transaction
+			tx.Rollback()
+			status = false
+			// If we have to roll back, start a new context
+			tx, err = db.BeginTx(ctx, nil)
+			CheckError(err)
+		}
+	}
+
+	//String that will be updated on redeem
+	statusredeem := "Rejected"
+	if status {
+		statusredeem = "Approved"
+	}
+
+	////////////////////////////////////////////////////
+	//Update the account to which coins are being transferred
+	res, err := tx.ExecContext(ctx, "UPDATE redeem SET status = ? WHERE id = ? ", statusredeem, id)
+	rows_affected, _ := res.RowsAffected()
+
+	if err != nil || rows_affected != 1 {
+		// Incase we find any error in the query execution, rollback the transaction
+		tx.Rollback()
+	}
+
+	//Incase of no error Commit them
+	err = tx.Commit()
+	CheckError(err)
+
+	if status {
+		log.Println("Redeem completed")
+		return true
+	} else {
+		return false
+	}
+
 }
